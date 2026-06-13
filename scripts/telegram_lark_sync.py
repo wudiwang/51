@@ -25,7 +25,7 @@ if hasattr(sys.stdout, "reconfigure"):
 DEFAULT_CONFIG = Path("telegram_lark_sync.config.json")
 DEFAULT_SHEET_TOKEN = "replace-with-lark-sheet-token"
 DEFAULT_SHEET_ID = "replace-with-sheet-id"
-DEFAULT_LARK_CLI = r"C:\Users\ADMIN\AppData\Roaming\npm\lark-cli.cmd"
+DEFAULT_LARK_CLI = "lark-cli"
 HEADERS = [
     "同步时间",
     "消息时间",
@@ -45,6 +45,7 @@ class LarkTarget:
     spreadsheet_token: str
     sheet_id: str
     next_row: int = 2
+    cli_path: str = DEFAULT_LARK_CLI
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
@@ -217,7 +218,7 @@ def append_rows_to_lark(rows: list[list[str]], target: LarkTarget) -> None:
     start_cell = f"A{target.next_row}"
     subprocess.run(
         [
-            DEFAULT_LARK_CLI,
+            target.cli_path,
             "sheets",
             "+csv-put",
             "--as",
@@ -250,7 +251,7 @@ def existing_sheet_keys(target: LarkTarget) -> set[str]:
     end_row = target.next_row - 1
     result = subprocess.run(
         [
-            DEFAULT_LARK_CLI,
+            target.cli_path,
             "sheets",
             "+cells-get",
             "--as",
@@ -286,6 +287,7 @@ def target_from_config(config: dict[str, Any]) -> LarkTarget:
         spreadsheet_token=lark["spreadsheet_token"],
         sheet_id=lark["sheet_id"],
         next_row=int(lark.get("next_row", 2)),
+        cli_path=str(lark.get("cli_path", DEFAULT_LARK_CLI)),
     )
 
 
