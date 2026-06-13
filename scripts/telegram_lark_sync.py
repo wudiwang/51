@@ -38,6 +38,7 @@ HEADERS = [
     "是否媒体",
     "原始类型",
 ]
+DEDUPE_READ_CHUNK_ROWS = 200
 
 
 @dataclass
@@ -46,6 +47,7 @@ class LarkTarget:
     sheet_id: str
     next_row: int = 2
     cli_path: str = DEFAULT_LARK_CLI
+    dedupe_scan_rows: int = 1000
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> dict[str, Any]:
@@ -81,6 +83,7 @@ def create_config(path: Path = DEFAULT_CONFIG) -> None:
             "sheet_id": DEFAULT_SHEET_ID,
             "next_row": 2,
             "cli_path": DEFAULT_LARK_CLI,
+            "dedupe_scan_rows": 1000,
         },
         "sync": {
             "include_channels": False,
@@ -249,35 +252,38 @@ def existing_sheet_keys(target: LarkTarget) -> set[str]:
     if target.next_row <= 2:
         return set()
     end_row = target.next_row - 1
-    result = subprocess.run(
-        [
-            target.cli_path,
-            "sheets",
-            "+cells-get",
-            "--as",
-            "user",
-            "--spreadsheet-token",
-            target.spreadsheet_token,
-            "--sheet-id",
-            target.sheet_id,
-            "--range",
-            f"A2:J{end_row}",
-            "--format",
-            "json",
-        ],
-        text=True,
-        encoding="utf-8",
-        capture_output=True,
-        check=True,
-    )
-    payload = json.loads(result.stdout)
+    start_row = max(2, end_row - target.dedupe_scan_rows + 1)
     keys: set[str] = set()
-    for range_data in payload.get("data", {}).get("ranges", []):
-        for cells in range_data.get("cells", []):
-            row = [cell_value(cell) for cell in cells]
-            key = message_key_from_row(row)
-            if key:
-                keys.add(key)
+    for chunk_start in range(start_row, end_row + 1, DEDUPE_READ_CHUNK_ROWS):
+        chunk_end = min(end_row, chunk_start + DEDUPE_READ_CHUNK_ROWS - 1)
+        result = subprocess.run(
+            [
+                target.cli_path,
+                "sheets",
+                "+cells-get",
+                "--as",
+                "user",
+                "--spreadsheet-token",
+                target.spreadsheet_token,
+                "--sheet-id",
+                target.sheet_id,
+                "--range",
+                f"A{chunk_start}:J{chunk_end}",
+                "--format",
+                "json",
+            ],
+            text=True,
+            encoding="utf-8",
+            capture_output=True,
+            check=True,
+        )
+        payload = json.loads(result.stdout)
+        for range_data in payload.get("data", {}).get("ranges", []):
+            for cells in range_data.get("cells", []):
+                row = [cell_value(cell) for cell in cells]
+                key = message_key_from_row(row)
+                if key:
+                    keys.add(key)
     return keys
 
 
@@ -288,6 +294,7 @@ def target_from_config(config: dict[str, Any]) -> LarkTarget:
         sheet_id=lark["sheet_id"],
         next_row=int(lark.get("next_row", 2)),
         cli_path=str(lark.get("cli_path", DEFAULT_LARK_CLI)),
+        dedupe_scan_rows=int(lark.get("dedupe_scan_rows", 1000)),
     )
 
 

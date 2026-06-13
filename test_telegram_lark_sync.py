@@ -1,13 +1,17 @@
 import unittest
+import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 
 from telegram_lark_sync import (
+    LarkTarget,
     chat_matches_targets,
     chunked,
+    existing_sheet_keys,
     is_target_chat,
     message_key_from_row,
     message_to_row,
@@ -91,6 +95,45 @@ class TelegramLarkSyncTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(chat_matches_targets(chat, ["4844072747"]))
         self.assertFalse(chat_matches_targets(chat, ["other-group"]))
         self.assertTrue(chat_matches_targets(chat, []))
+
+    def test_existing_sheet_keys_reads_recent_dedupe_window_only(self):
+        payload = {
+            "data": {
+                "ranges": [
+                    {
+                        "cells": [
+                            [{}, {}, {}, {"value": "chat-1"}, {}, {}, {"value": "99"}]
+                        ]
+                    }
+                ]
+            }
+        }
+
+        with patch("telegram_lark_sync.subprocess.run") as run:
+            run.return_value.stdout = json.dumps(payload)
+
+            keys = existing_sheet_keys(
+                LarkTarget(
+                    spreadsheet_token="sheet",
+                    sheet_id="tab",
+                    next_row=2327,
+                    cli_path="lark-cli",
+                    dedupe_scan_rows=1000,
+                )
+            )
+
+        self.assertEqual(keys, {"chat-1:99"})
+        ranges = [call.args[0][call.args[0].index("--range") + 1] for call in run.call_args_list]
+        self.assertEqual(
+            ranges,
+            [
+                "A1327:J1526",
+                "A1527:J1726",
+                "A1727:J1926",
+                "A1927:J2126",
+                "A2127:J2326",
+            ],
+        )
 
 
 if __name__ == "__main__":

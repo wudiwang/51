@@ -25,6 +25,7 @@ tmp_*.json
 *auth*qr*.png
 *reauth*qr*.png
 *_qr.png
+lark-auth*.png
 
 # OS / editor
 .DS_Store
