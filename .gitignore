@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local secrets and Telegram sessions
+*.session
+*.session-journal
+*.config.json
+.env
+.env.*
+!config/*.example.json
+
+# Runtime data
+*.log
+*.out
+*.err
+telegram_messages_read*.json
+*.csv
+tmp_*.json
+
+# Lark / auth / QR / local artifacts
+*auth*qr*.png
+*reauth*qr*.png
+*_qr.png
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

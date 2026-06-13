@@ -1,0 +1,22 @@
+{
+  "telegram": {
+    "api_id": 123456,
+    "api_hash": "replace-with-your-api-hash",
+    "phone": "+10000000000",
+    "session": "telegram_lark_sync"
+  },
+  "lark": {
+    "spreadsheet_token": "replace-with-lark-sheet-token",
+    "sheet_id": "replace-with-sheet-id",
+    "next_row": 2,
+    "cli_path": "lark-cli"
+  },
+  "sync": {
+    "include_channels": false,
+    "include_private": false,
+    "target_chats": [
+      "fiveone-overall"
+    ],
+    "max_message_chars": 30000
+  }
+}

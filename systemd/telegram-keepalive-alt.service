@@ -1,0 +1,10 @@
+[Unit]
+Description=Telegram secondary account keepalive
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/telegram-lark
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/opt/telegram-lark/.venv/bin/python /opt/telegram-lark/scripts/telegram_keepalive_alt.py --config /opt/telegram-lark/secrets/telegram_keepalive_alt.config.json keepalive

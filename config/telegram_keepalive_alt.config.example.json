@@ -1,0 +1,8 @@
+{
+  "telegram": {
+    "api_id": 123456,
+    "api_hash": "replace-with-your-api-hash",
+    "phone": "+10000000000",
+    "session": "telegram_keepalive_alt"
+  }
+}
