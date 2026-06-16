@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram private constrained auto-reply
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/telegram-lark
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/opt/telegram-lark/.venv/bin/python /opt/telegram-lark/scripts/telegram_private_autoreply.py --config /opt/telegram-lark/secrets/telegram_private_autoreply.config.json
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
