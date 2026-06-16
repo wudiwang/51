@@ -21,6 +21,7 @@ class AutoReplyConfig:
     telegram: dict[str, Any]
     target_username: str
     reply_text: str
+    fallback_reply_text: str
     notify_saved_messages: bool
     max_replies_per_day: int
     state_path: Path
@@ -41,6 +42,7 @@ def load_config(path: Path) -> AutoReplyConfig:
         telegram=raw["telegram"],
         target_username=str(raw["target_username"]).lstrip("@"),
         reply_text=str(raw["reply_text"]),
+        fallback_reply_text=str(raw.get("fallback_reply_text", raw["reply_text"])),
         notify_saved_messages=bool(raw.get("notify_saved_messages", True)),
         max_replies_per_day=int(raw.get("max_replies_per_day", 1)),
         state_path=Path(raw.get("state_path", DEFAULT_STATE)),
@@ -88,6 +90,32 @@ def should_ignore_text(text: str) -> bool:
     return any(term in lower for term in risky_terms)
 
 
+def choose_reply(text: str, cfg: AutoReplyConfig) -> str:
+    """Small bounded reply policy for familiar coworker/friend scheduling chat."""
+    stripped = text.strip()
+    lower = stripped.lower()
+
+    if any(term in stripped for term in ["没空", "忙", "改天", "下次", "最近不行"]):
+        return "没事，你先忙。等你这阵过了我们再约，最近确实都被事情推着走。"
+
+    if any(term in stripped for term in ["可以", "行", "好啊", "有空", "约", "吃", "饭"]):
+        return "行，那你看今晚或者明晚哪个方便？不用太正式，简单吃点聊聊就好。"
+
+    if any(term in stripped for term in ["什么时候", "哪天", "时间", "几点", "哪里", "去哪"]):
+        return "我这边今晚或明晚都可以，地方你定也行；不想折腾的话就找个近点的。"
+
+    if any(term in stripped for term in ["聊啥", "什么事", "咋了", "怎么了"]):
+        return "没啥特别正式的，就是最近项目和这边情况有点多，想听听你怎么看，也顺便放松下。"
+
+    if len(stripped) <= 4:
+        return "哈哈，那我晚点看下时间，你方便的话我们就简单约一顿。"
+
+    if any(term in lower for term in ["ok", "yes", "sure"]):
+        return "OK，那你看今晚或者明晚哪个方便，我们简单吃点聊聊。"
+
+    return cfg.fallback_reply_text
+
+
 async def run_listener(config_path: Path) -> None:
     from telethon import TelegramClient, events
 
@@ -119,7 +147,8 @@ async def run_listener(config_path: Path) -> None:
                     f"收到 @{cfg.target_username} 的消息，但今日自动回复额度已用完：\n{text[:1000]}",
                 )
             return
-        reply = await event.reply(cfg.reply_text)
+        reply_text = choose_reply(text, cfg)
+        reply = await event.reply(reply_text)
         mark_replied(state, event.message.id, reply.id)
         save_json(cfg.state_path, state)
         if cfg.notify_saved_messages:
@@ -128,7 +157,7 @@ async def run_listener(config_path: Path) -> None:
                 "已自动回复 @{user}\n\n对方消息：\n{incoming}\n\n自动回复：\n{reply}".format(
                     user=cfg.target_username,
                     incoming=text[:1000],
-                    reply=cfg.reply_text,
+                    reply=reply_text,
                 ),
             )
 
