@@ -90,8 +90,8 @@ class ScheduleFormsTest(unittest.TestCase):
 
         url = form_url(cfg(), record)
 
-        self.assertIn("table=tblFeedback", url)
-        self.assertIn("view=vewForm", url)
+        self.assertNotIn("table=tblFeedback", url)
+        self.assertNotIn("view=vewForm", url)
         self.assertIn("prefill_%E5%8E%9F%E8%AE%B0%E5%BD%95ID=rec123", url)
         self.assertIn("prefill_%E4%BA%8B%E9%A1%B9%E7%B1%BB%E5%9E%8B=%E9%9C%80%E6%B1%82", url)
 

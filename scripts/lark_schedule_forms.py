@@ -205,8 +205,6 @@ def form_url(cfg: ScheduleConfig, record: LarkRecord) -> str:
     table_id = cfg.demand_table_id if record.table_kind == "demand" else cfg.issue_table_id
     need = record.values.get("所需端") if record.table_kind == "demand" else ["线上问题"]
     params = {
-        "table": cfg.form_table_id,
-        "view": cfg.form_view_id,
         "prefill_事项标题": record.title,
         "prefill_事项类型": issue_type,
         "prefill_原表ID": table_id,

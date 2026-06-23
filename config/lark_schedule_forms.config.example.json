@@ -6,7 +6,7 @@
   "feedback_table_id": "replace-with-feedback-table-id",
   "form_table_id": "replace-with-feedback-table-id",
   "form_view_id": "replace-with-form-view-id",
-  "form_base_url": "https://example.larksuite.com/wiki/xxx",
+  "form_base_url": "https://example.larksuite.com/share/base/replace-with-form-share-token",
   "bot_report_config_path": "secrets/telegram_bot_report.config.json",
   "telegram_chat_id": "",
   "max_items": 20,
