@@ -106,3 +106,34 @@ sudo cp systemd/telegram-keepalive-alt.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now telegram-keepalive-alt.timer
 ```
+
+## Discussion Intake To Lark Base
+
+The intake job scans configured Telegram groups every 5 minutes, creates
+Lark Base records for clearly discussed demands or online issues, updates
+matching records when messages indicate completion/testing, and sends a
+Telegram bot notification when it writes data.
+
+Copy `config/telegram_lark_intake.config.example.json` to:
+
+```bash
+secrets/telegram_lark_intake.config.json
+```
+
+Use the existing Telegram sync config/session by setting:
+
+```json
+{
+  "telegram_config_path": "secrets/telegram_lark_sync.config.json"
+}
+```
+
+Enable the timer:
+
+```bash
+sudo cp systemd/telegram-lark-intake.service /etc/systemd/system/
+sudo cp systemd/telegram-lark-intake.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now telegram-lark-intake.timer
+systemctl list-timers telegram-lark-intake.timer
+```

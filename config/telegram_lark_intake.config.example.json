@@ -1,0 +1,15 @@
+{
+  "telegram_config_path": "secrets/telegram_lark_sync.config.json",
+  "lark_cli_path": "lark-cli",
+  "base_token": "replace-with-lark-base-token",
+  "demand_table_id": "replace-with-demand-table-id",
+  "issue_table_id": "replace-with-issue-table-id",
+  "target_chats": [
+    "fiveone-overall"
+  ],
+  "state_path": "secrets/telegram_lark_intake.state.json",
+  "bot_report_config_path": "secrets/telegram_bot_report.config.json",
+  "first_run_lookback_minutes": 10,
+  "max_messages_per_chat": 200,
+  "dry_run": false
+}
