@@ -496,8 +496,9 @@ def send_bot_message(config_path: Path | None, text: str) -> None:
     if not config_path or not config_path.exists() or not text.strip():
         return
     config = load_json(config_path)
-    token = config["bot_token"]
-    chat_id = config["chat_id"]
+    bot_config = config.get("telegram_bot", config)
+    token = bot_config["bot_token"]
+    chat_id = bot_config["chat_id"]
     payload = json.dumps(
         {"chat_id": chat_id, "text": text},
         ensure_ascii=False,
