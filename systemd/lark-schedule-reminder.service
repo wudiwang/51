@@ -1,0 +1,12 @@
+[Unit]
+Description=Send Lark scheduling reminder to Telegram
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/telegram-lark
+Environment=PYTHONIOENCODING=utf-8
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/telegram-lark/.venv/bin/python /opt/telegram-lark/scripts/lark_schedule_forms.py --config /opt/telegram-lark/secrets/lark_schedule_forms.config.json remind

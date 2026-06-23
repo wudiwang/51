@@ -1,0 +1,11 @@
+[Unit]
+Description=Write back Lark scheduling form submissions every 5 minutes
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

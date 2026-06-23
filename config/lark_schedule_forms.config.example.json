@@ -1,0 +1,14 @@
+{
+  "lark_cli_path": "lark-cli",
+  "base_token": "replace-with-lark-base-token",
+  "demand_table_id": "replace-with-demand-table-id",
+  "issue_table_id": "replace-with-issue-table-id",
+  "feedback_table_id": "replace-with-feedback-table-id",
+  "form_table_id": "replace-with-feedback-table-id",
+  "form_view_id": "replace-with-form-view-id",
+  "form_base_url": "https://example.larksuite.com/wiki/xxx",
+  "bot_report_config_path": "secrets/telegram_bot_report.config.json",
+  "telegram_chat_id": "",
+  "max_items": 20,
+  "dry_run": false
+}

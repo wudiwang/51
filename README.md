@@ -137,3 +137,33 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now telegram-lark-intake.timer
 systemctl list-timers telegram-lark-intake.timer
 ```
+
+## Scheduling Form Reminder
+
+The scheduling reminder sends a Telegram Bot message with URL buttons that
+open a pre-filled Lark Base form. Form submissions are written into a feedback
+table and a 5-minute writeback timer updates the original demand or online
+issue record.
+
+Copy `config/lark_schedule_forms.config.example.json` to:
+
+```bash
+secrets/lark_schedule_forms.config.json
+```
+
+Set `telegram_chat_id` to the Telegram group chat ID when the bot should post
+directly to a group. Leave it empty to use the private chat configured in
+`telegram_bot_report.config.json`.
+
+Enable the timers:
+
+```bash
+sudo cp systemd/lark-schedule-reminder.service /etc/systemd/system/
+sudo cp systemd/lark-schedule-reminder.timer /etc/systemd/system/
+sudo cp systemd/lark-schedule-writeback.service /etc/systemd/system/
+sudo cp systemd/lark-schedule-writeback.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now lark-schedule-reminder.timer
+sudo systemctl enable --now lark-schedule-writeback.timer
+systemctl list-timers lark-schedule-reminder.timer lark-schedule-writeback.timer
+```

@@ -1,0 +1,10 @@
+[Unit]
+Description=Send Lark scheduling reminder daily at 18:00 Bangkok time
+
+[Timer]
+OnCalendar=*-*-* 11:00:00 UTC
+AccuracySec=60s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
