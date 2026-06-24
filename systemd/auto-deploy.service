@@ -1,0 +1,11 @@
+[Unit]
+Description=Pull latest telegram-lark code from GitHub and redeploy
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/telegram-lark
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/bin/bash /opt/telegram-lark/scripts/auto_deploy.sh

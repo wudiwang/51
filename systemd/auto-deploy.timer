@@ -1,0 +1,11 @@
+[Unit]
+Description=Run telegram-lark auto-deploy every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=auto-deploy.service
+
+[Install]
+WantedBy=timers.target
