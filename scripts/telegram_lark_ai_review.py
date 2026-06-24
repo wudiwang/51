@@ -536,36 +536,10 @@ def action_notification_line(action: AiAction, records: list[ExistingRecord]) ->
             )
         return f"更新：未匹配到原记录《{action.title}》（置信度 {action.confidence:.2f}）"
     if action.action == "create_demand":
-        return f"新需求：《{action.title}》（置信度 {action.confidence:.2f}）"
+        return f"新需求：《{compact_title(action.title)}》（置信度 {action.confidence:.2f}）"
     if action.action == "create_issue":
-        return f"新线上问题：《{action.title}》（置信度 {action.confidence:.2f}）"
+        return f"新线上问题：《{compact_title(action.title)}》（置信度 {action.confidence:.2f}）"
     return f"{action.title}（{action.action}，置信度 {action.confidence:.2f}）"
-
-
-def notification_text(
-    auto_actions: list[AiAction],
-    notify_actions: list[AiAction],
-    ignored_count: int,
-    records: list[ExistingRecord] | None = None,
-) -> str:
-    if not auto_actions and not notify_actions:
-        return ""
-    lines = ["AI 复核 Telegram 群消息结果："]
-    if auto_actions:
-        lines.append("")
-        lines.append("已自动写入/更新：")
-        for action in auto_actions[:10]:
-            lines.append(f"- {action.title}（{action.action}，置信度 {action.confidence:.2f}）")
-    if notify_actions:
-        lines.append("")
-        lines.append("需要 Steven 确认：")
-        for action in notify_actions[:10]:
-            lines.append(f"- {action.title}（{action.action}，置信度 {action.confidence:.2f}）")
-            if action.reason:
-                lines.append(f"  原因：{action.reason}")
-    lines.append("")
-    lines.append(f"本轮忽略/低置信度：{ignored_count} 条")
-    return "\n".join(lines)
 
 
 def notification_text(
