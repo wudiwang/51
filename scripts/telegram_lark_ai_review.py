@@ -450,12 +450,17 @@ def upsert_action_record(cfg: AiReviewConfig, action: AiAction, messages: list[R
         Path(path).unlink(missing_ok=True)
 
 
-def update_status_from_action(cfg: AiReviewConfig, action: AiAction, records: list[ExistingRecord]) -> bool:
+def matched_record_for_action(action: AiAction, records: list[ExistingRecord]) -> ExistingRecord | None:
     record = None
     if action.matched_record_id:
         record = next((item for item in records if item.record_id == action.matched_record_id), None)
     if record is None:
         record = find_matching_record(action.title + " " + action.summary, records, action.matched_table_kind or None)
+    return record
+
+
+def update_status_from_action(cfg: AiReviewConfig, action: AiAction, records: list[ExistingRecord]) -> bool:
+    record = matched_record_for_action(action, records)
     if record is None:
         return False
     table_id = cfg.demand_table_id if record.table_kind == "demand" else cfg.issue_table_id
@@ -484,7 +489,37 @@ def update_status_from_action(cfg: AiReviewConfig, action: AiAction, records: li
         Path(path).unlink(missing_ok=True)
 
 
-def notification_text(auto_actions: list[AiAction], notify_actions: list[AiAction], ignored_count: int) -> str:
+def table_kind_label(table_kind: str) -> str:
+    if table_kind == "demand":
+        return "需求"
+    if table_kind == "issue":
+        return "线上问题"
+    return "记录"
+
+
+def action_notification_line(action: AiAction, records: list[ExistingRecord]) -> str:
+    if action.action == "update_status":
+        record = matched_record_for_action(action, records)
+        if record:
+            status = action.status or "状态更新"
+            return (
+                f"更新：{table_kind_label(record.table_kind)}《{record.title}》"
+                f" -> {status}（置信度 {action.confidence:.2f}）"
+            )
+        return f"更新：未匹配到原记录《{action.title}》（置信度 {action.confidence:.2f}）"
+    if action.action == "create_demand":
+        return f"新需求：《{action.title}》（置信度 {action.confidence:.2f}）"
+    if action.action == "create_issue":
+        return f"新线上问题：《{action.title}》（置信度 {action.confidence:.2f}）"
+    return f"{action.title}（{action.action}，置信度 {action.confidence:.2f}）"
+
+
+def notification_text(
+    auto_actions: list[AiAction],
+    notify_actions: list[AiAction],
+    ignored_count: int,
+    records: list[ExistingRecord] | None = None,
+) -> str:
     if not auto_actions and not notify_actions:
         return ""
     lines = ["AI 复核 Telegram 群消息结果："]
@@ -498,6 +533,33 @@ def notification_text(auto_actions: list[AiAction], notify_actions: list[AiActio
         lines.append("需要 Steven 确认：")
         for action in notify_actions[:10]:
             lines.append(f"- {action.title}（{action.action}，置信度 {action.confidence:.2f}）")
+            if action.reason:
+                lines.append(f"  原因：{action.reason}")
+    lines.append("")
+    lines.append(f"本轮忽略/低置信度：{ignored_count} 条")
+    return "\n".join(lines)
+
+
+def notification_text(
+    auto_actions: list[AiAction],
+    notify_actions: list[AiAction],
+    ignored_count: int,
+    records: list[ExistingRecord] | None = None,
+) -> str:
+    if not auto_actions and not notify_actions:
+        return ""
+    records = records or []
+    lines = ["AI 复核 Telegram 群消息结果："]
+    if auto_actions:
+        lines.append("")
+        lines.append("已自动写入/更新：")
+        for action in auto_actions[:10]:
+            lines.append(f"- {action_notification_line(action, records)}")
+    if notify_actions:
+        lines.append("")
+        lines.append("需要 Steven 确认：")
+        for action in notify_actions[:10]:
+            lines.append(f"- {action_notification_line(action, records)}")
             if action.reason:
                 lines.append(f"  原因：{action.reason}")
     lines.append("")
@@ -545,7 +607,7 @@ async def run_once(config_path: Path) -> None:
         reviewed.add(message.message_key)
     state["reviewed_message_keys"] = list(reviewed)[-2000:]
     save_json(cfg.state_path, state)
-    text = notification_text(auto_actions, notify_actions, ignored)
+    text = notification_text(auto_actions, notify_actions, ignored, records)
     if text and not cfg.dry_run:
         send_bot_message(cfg.bot_report_config_path, text)
     print(json.dumps({"messages": len(messages), "actions": len(actions), "auto": len(auto_actions), "notify": len(notify_actions)}, ensure_ascii=False))

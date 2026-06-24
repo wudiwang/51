@@ -7,6 +7,7 @@ from scripts.telegram_lark_ai_review import (
     RecentMessage,
     ai_action_to_candidate,
     build_ai_request_payload,
+    notification_text,
     parse_ai_response,
     should_apply_action,
 )
@@ -115,6 +116,25 @@ class TelegramLarkAiReviewTest(unittest.TestCase):
         self.assertEqual(candidate.module, "代理/推广")
         self.assertEqual(candidate.sender, "Rene")
         self.assertEqual(candidate.sent_at.tzinfo, timezone.utc)
+
+    def test_notification_text_names_matched_record_for_status_update(self):
+        action = AiAction(
+            action="update_status",
+            confidence=0.9,
+            title="正式环境测试通过并已上线通知",
+            module="",
+            status="已解决",
+            matched_record_id="rec1",
+            matched_table_kind="demand",
+        )
+        records = [ExistingRecord("demand", "rec1", "H5&APP首页登录后定位调整", "待确认", "")]
+
+        text = notification_text([action], [], 0, records)
+
+        self.assertIn("更新：", text)
+        self.assertIn("需求", text)
+        self.assertIn("H5&APP首页登录后定位调整", text)
+        self.assertIn("已解决", text)
 
 
 if __name__ == "__main__":
