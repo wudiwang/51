@@ -6,7 +6,9 @@ from scripts.telegram_lark_ai_review import (
     AiAction,
     RecentMessage,
     ai_action_to_candidate,
+    build_record_payload,
     build_ai_request_payload,
+    compact_title,
     notification_text,
     parse_ai_response,
     should_apply_action,
@@ -135,6 +137,32 @@ class TelegramLarkAiReviewTest(unittest.TestCase):
         self.assertIn("需求", text)
         self.assertIn("H5&APP首页登录后定位调整", text)
         self.assertIn("已解决", text)
+
+    def test_create_payload_uses_short_title_and_detailed_description(self):
+        action = AiAction(
+            action="create_demand",
+            confidence=0.91,
+            title="H5和APP首页登录之后需要把默认定位调整到用户当前所在国家和城市",
+            module="前端/H5&APP",
+            status="待确认",
+            summary="Ethan 要求登录后首页定位按用户当前国家和城市展示，避免默认定位不准影响入口判断。",
+        )
+        message = RecentMessage(
+            message_key="chat:1",
+            group="fiveone-overall",
+            time="2026-06-24 14:00:00",
+            sender="Ethan",
+            text="首页登录后定位调整",
+        )
+
+        payload, _table_kind = build_record_payload(action, [message])
+
+        self.assertLessEqual(len(payload["需求名称"]), 16)
+        self.assertEqual(payload["详细描述"], action.summary)
+        self.assertIn("讨论摘要", payload)
+
+    def test_compact_title_keeps_medium_title_unchanged(self):
+        self.assertEqual(compact_title("首页登录定位调整"), "首页登录定位调整")
 
 
 if __name__ == "__main__":

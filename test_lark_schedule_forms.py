@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
 from lark_schedule_forms import (
     LarkRecord,
     ScheduleConfig,
+    daily_summary_text,
     demand_missing,
     form_url,
     issue_missing,
@@ -122,6 +123,50 @@ class ScheduleFormsTest(unittest.TestCase):
         )
         self.assertIn("@柯南 @Aiden @afeng", text)
         self.assertIn("点击按钮", text)
+
+    def test_daily_summary_text_counts_new_changes_and_progress(self):
+        demands = [
+            LarkRecord(
+                table_kind="demand",
+                record_id="d1",
+                title="首页登录定位调整",
+                values={
+                    "提出时间": "2026-06-24 10:00:00",
+                    "状态": ["进行中"],
+                    "更新时间": "2026-06-24 15:00:00",
+                },
+            ),
+            LarkRecord(
+                table_kind="demand",
+                record_id="d2",
+                title="侧边栏积分商城",
+                values={
+                    "提出时间": "2026-06-23 10:00:00",
+                    "状态": ["已完成"],
+                    "更新时间": "2026-06-24 11:00:00",
+                },
+            ),
+        ]
+        issues = [
+            LarkRecord(
+                table_kind="issue",
+                record_id="i1",
+                title="返水比例展示异常",
+                values={
+                    "提出时间": "2026-06-24 12:00:00",
+                    "状态": ["待确认"],
+                    "更新时间": "2026-06-24 12:30:00",
+                },
+            )
+        ]
+
+        text = daily_summary_text(demands, issues, [], today="2026-06-24")
+
+        self.assertIn("今天新收录需求：1 个", text)
+        self.assertIn("今天新切入问题：1 个", text)
+        self.assertIn("今天有变更的需求：2 个", text)
+        self.assertIn("需求进度", text)
+        self.assertIn("Bug/线上问题进度", text)
 
 
 if __name__ == "__main__":

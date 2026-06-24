@@ -120,10 +120,12 @@ SYSTEM_PROMPT = """你是 51 重构项目的项目管理自动登记助手。
    - 状态更新：已解决、测试环境已发布、已部署、现在好了、待测试等，并且能匹配已有事项。
 3. 输出必须是 JSON，严格符合 schema。
 4. 标题要像项目管理记录，不要直接复制“这个也有问题”“我本地试试”等聊天短句。
-5. 只有有明确事项价值时才输出 create/update；普通确认、感谢、1、闲聊输出 ignore 或不输出。
-6. 如果不确定但可能重要，输出 notify_only，confidence 在 0.55-0.79。
-7. 高置信度 action 才应超过 0.8。
-8. 不要暴露任何密钥、手机号、token、session 等敏感信息。
+5. 标题要短，尽量控制在 8-14 个汉字左右；不要把完整背景、讨论过程、人员结论都塞进标题。
+6. 具体背景、讨论过程、决策依据、人员结论写进 summary，后续会进入“详细描述”字段。
+7. 只有有明确事项价值时才输出 create/update；普通确认、感谢、1、闲聊输出 ignore 或不输出。
+8. 如果不确定但可能重要，输出 notify_only，confidence 在 0.55-0.79。
+9. 高置信度 action 才应超过 0.8。
+10. 不要暴露任何密钥、手机号、token、session 等敏感信息。
 """
 
 
@@ -396,18 +398,37 @@ def write_json_file(payload: dict[str, Any]) -> str:
     return Path(handle.name).name
 
 
-def upsert_action_record(cfg: AiReviewConfig, action: AiAction, messages: list[RecentMessage]) -> str | None:
+def compact_title(title: str, max_chars: int = 16) -> str:
+    text = " ".join(str(title or "").replace("\n", " ").split())
+    for prefix in ("需求：", "问题：", "Bug：", "BUG：", "线上问题：", "新需求："):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+    text = text.strip(" ，,。；;：:")
+    if len(text) <= max_chars:
+        return text
+    separators = ["，", ",", "。", "；", ";", "：", ":", "、", "-", " "]
+    cut_positions = [text.find(sep) for sep in separators if 0 < text.find(sep) <= max_chars]
+    if cut_positions:
+        text = text[: min(cut_positions)]
+    else:
+        text = text[:max_chars]
+    return text.strip(" ，,。；;：:")
+
+
+def build_record_payload(action: AiAction, messages: list[RecentMessage]) -> tuple[dict[str, Any], str]:
     candidate = ai_action_to_candidate(action, messages)
-    table_id = cfg.demand_table_id if candidate.kind == "demand" else cfg.issue_table_id
+    short_title = compact_title(candidate.title)
+    detail = action.summary or candidate.discussion or candidate.title
     if candidate.kind == "demand":
         payload: dict[str, Any] = {
-            "需求名称": candidate.title,
+            "需求名称": short_title,
             "所属月份": f"{candidate.sent_at.astimezone(BANGKOK_TZ).month}月",
             "备注": action.reason or "AI识别，待确认",
             "状态": action.status or "待确认",
             "所需端": ["前端"] if "前端" in (action.module + candidate.title) else ["后端", "前端"],
             "提出时间": candidate.sent_at.astimezone(BANGKOK_TZ).strftime("%Y-%m-%d 00:00:00"),
-            "讨论摘要": candidate.discussion,
+            "讨论摘要": detail,
+            "详细描述": detail,
         }
         if action.owner:
             payload["前端开发"] = action.owner
@@ -415,19 +436,26 @@ def upsert_action_record(cfg: AiReviewConfig, action: AiAction, messages: list[R
             payload["前端计划完成时间"] = action.expected_time
         if candidate.jira_url:
             payload["jira地址"] = f"[{candidate.jira_url}]({candidate.jira_url})"
-    else:
-        payload = {
-            "标题": candidate.title,
-            "模块": candidate.module,
-            "提出时间": candidate.sent_at.astimezone(BANGKOK_TZ).strftime("%Y-%m-%d %H:%M:%S"),
-            "状态": action.status or "待确认",
-            "备注": action.reason or "AI识别，待确认",
-            "讨论摘要": candidate.discussion,
-        }
-        if action.owner:
-            payload["解决人"] = action.owner
-        if action.expected_time:
-            payload["预计解决时间"] = action.expected_time
+        return payload, "demand"
+    payload = {
+        "标题": short_title,
+        "模块": candidate.module,
+        "提出时间": candidate.sent_at.astimezone(BANGKOK_TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "状态": action.status or "待确认",
+        "备注": action.reason or "AI识别，待确认",
+        "讨论摘要": detail,
+        "详细描述": detail,
+    }
+    if action.owner:
+        payload["解决人"] = action.owner
+    if action.expected_time:
+        payload["预计解决时间"] = action.expected_time
+    return payload, "issue"
+
+
+def upsert_action_record(cfg: AiReviewConfig, action: AiAction, messages: list[RecentMessage]) -> str | None:
+    payload, table_kind = build_record_payload(action, messages)
+    table_id = cfg.demand_table_id if table_kind == "demand" else cfg.issue_table_id
     if cfg.dry_run:
         return None
     path = write_json_file(payload)

@@ -238,6 +238,74 @@ def collect_missing_items(cfg: ScheduleConfig) -> tuple[list[MissingItem], int, 
     return missing[: cfg.max_items], today_demands, today_issues
 
 
+def record_date(record: LarkRecord, field_names: list[str]) -> datetime | None:
+    for field in field_names:
+        value = record.values.get(field)
+        parsed = parse_date(value)
+        if parsed:
+            return parsed
+    return None
+
+
+def status_counts(records: list[LarkRecord]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in records:
+        status = first_select(record.values.get("状态")) or "未填写"
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def format_counts(counts: dict[str, int]) -> str:
+    if not counts:
+        return "暂无记录"
+    return "，".join(f"{name} {count} 个" for name, count in sorted(counts.items()))
+
+
+def daily_summary_text(
+    demand_records: list[LarkRecord],
+    issue_records: list[LarkRecord],
+    items: list[MissingItem],
+    today: str | None = None,
+) -> str:
+    target_date = datetime.strptime(today, "%Y-%m-%d").date() if today else datetime.now(BANGKOK_TZ).date()
+    label = target_date.strftime("%m/%d")
+    today_demands = [
+        record
+        for record in demand_records
+        if (record_date(record, ["提出时间", "创建时间"]) or datetime.min.replace(tzinfo=BANGKOK_TZ)).date() == target_date
+    ]
+    today_issues = [
+        record
+        for record in issue_records
+        if (record_date(record, ["提出时间", "创建时间"]) or datetime.min.replace(tzinfo=BANGKOK_TZ)).date() == target_date
+    ]
+    changed_demands = [
+        record
+        for record in demand_records
+        if (record_date(record, ["更新时间", "最近修改", "修改时间"]) or datetime.min.replace(tzinfo=BANGKOK_TZ)).date() == target_date
+    ]
+    lines = [f"【每日项目进度总结 {label} 18:00】", ""]
+    lines.append(f"1. 今天新收录需求：{len(today_demands)} 个")
+    lines.append(f"2. 今天新切入问题：{len(today_issues)} 个")
+    lines.append(f"3. 今天有变更的需求：{len(changed_demands)} 个")
+    lines.append("")
+    lines.append("4. 需求和 Bug 的处理进度")
+    lines.append(f"- 需求进度：共 {len(demand_records)} 个，{format_counts(status_counts(demand_records))}")
+    lines.append(f"- Bug/线上问题进度：共 {len(issue_records)} 个，{format_counts(status_counts(issue_records))}")
+    lines.append("")
+    if items:
+        lines.append(f"5. 需要补齐排期的信息：{len(items)} 个")
+        for index, item in enumerate(items[:10], 1):
+            label = "需求" if item.record.table_kind == "demand" else "线上问题"
+            lines.append(f"{index}. [{label}] {item.record.title}")
+            lines.append(f"   缺：{'、'.join(item.missing)}")
+    else:
+        lines.append("5. 需要补齐排期的信息：0 个")
+    lines.append("")
+    lines.append("Steven 自查：今天重点看新增是否已入表、变更是否有 owner、待排期项是否已经明确下一步。")
+    return "\n".join(lines)
+
+
 def send_telegram(cfg: ScheduleConfig, text: str, items: list[MissingItem]) -> None:
     raw_bot = load_json(cfg.bot_report_config_path)
     bot = raw_bot.get("telegram_bot", raw_bot)
@@ -350,7 +418,9 @@ def process_feedback(cfg: ScheduleConfig) -> dict[str, int]:
 def run_reminder(config_path: Path) -> None:
     cfg = load_config(config_path)
     items, today_demands, today_issues = collect_missing_items(cfg)
-    text = reminder_text(items, today_demands, today_issues)
+    demand_records = records_from_table(cfg, "demand")
+    issue_records = records_from_table(cfg, "issue")
+    text = daily_summary_text(demand_records, issue_records, items)
     send_telegram(cfg, text, items)
     print(json.dumps({"missing": len(items), "today_demands": today_demands, "today_issues": today_issues}, ensure_ascii=False))
 
