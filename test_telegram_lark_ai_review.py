@@ -9,6 +9,7 @@ from scripts.telegram_lark_ai_review import (
     build_record_payload,
     build_ai_request_payload,
     compact_title,
+    jira_demand_fallback_actions,
     notification_text,
     parse_ai_response,
     should_apply_action,
@@ -163,6 +164,39 @@ class TelegramLarkAiReviewTest(unittest.TestCase):
 
     def test_compact_title_keeps_medium_title_unchanged(self):
         self.assertEqual(compact_title("首页登录定位调整"), "首页登录定位调整")
+
+    def test_jira_link_with_mentions_and_acceptance_becomes_demand(self):
+        messages = [
+            RecentMessage(
+                message_key="5524211944:34404",
+                group="overall-manage",
+                time="2026-06-24 16:09:18",
+                sender="LINA LINA",
+                text="http://jira.notbug.org/browse/FIVEONE-1308\n集团站点  报表-新增平台日报表菜单",
+            ),
+            RecentMessage(
+                message_key="5524211944:34405",
+                group="overall-manage",
+                time="2026-06-24 16:09:23",
+                sender="Steven",
+                text="@steven202626  @Aiden9070",
+            ),
+            RecentMessage(
+                message_key="5524211944:34407",
+                group="overall-manage",
+                time="2026-06-24 16:09:45",
+                sender="Aiden",
+                text="1",
+            ),
+        ]
+
+        actions = jira_demand_fallback_actions(messages, [])
+
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0].action, "create_demand")
+        self.assertEqual(actions[0].title, "集团站点报表新增平台日报表菜单")
+        self.assertIn("FIVEONE-1308", actions[0].summary)
+        self.assertEqual(actions[0].confidence, 0.95)
 
 
 if __name__ == "__main__":

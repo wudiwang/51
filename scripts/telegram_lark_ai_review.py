@@ -372,6 +372,62 @@ def parse_bangkok_time(value: str) -> datetime:
     return local.astimezone(timezone.utc)
 
 
+def title_from_jira_message(text: str) -> str:
+    cleaned = clean_text(text)
+    jira = extract_jira_url(cleaned)
+    if jira:
+        cleaned = cleaned.replace(jira, "")
+    cleaned = " ".join(line.strip() for line in cleaned.splitlines() if line.strip())
+    cleaned = " ".join(cleaned.split())
+    cleaned = cleaned.replace(" ", "").replace("-", "")
+    cleaned = cleaned.replace("  ", " ").strip(" ，,。；;：:")
+    return cleaned
+
+
+def has_acceptance_context(messages: list[RecentMessage], index: int) -> bool:
+    window = messages[index : index + 4]
+    text = "\n".join(item.text for item in window)
+    if "@steven" in text.casefold() or "@aiden" in text.casefold():
+        return True
+    return any(item.text.strip() in {"1", "接", "收到", "已接", "处理", "已处理"} for item in window[1:])
+
+
+def jira_demand_fallback_actions(messages: list[RecentMessage], records: list[ExistingRecord]) -> list[AiAction]:
+    actions: list[AiAction] = []
+    existing = " ".join((record.title + " " + record.jira_url) for record in records)
+    for index, message in enumerate(messages):
+        jira_url = extract_jira_url(message.text)
+        if not jira_url or "FIVEONE-" not in message.text:
+            continue
+        if jira_url in existing:
+            continue
+        title = title_from_jira_message(message.text)
+        if not title or len(title) < 4:
+            continue
+        if not has_acceptance_context(messages, index):
+            continue
+        context = messages[index : index + 4]
+        summary_parts = [
+            f"{message.sender} 发出 Jira 需求 {jira_url}：{title}。",
+        ]
+        followups = [item.text for item in context[1:] if item.text.strip()]
+        if followups:
+            summary_parts.append("后续确认：" + "；".join(followups))
+        actions.append(
+            AiAction(
+                action="create_demand",
+                confidence=0.95,
+                title=title,
+                module="需求/Jira",
+                status="待确认",
+                summary=" ".join(summary_parts),
+                message_keys=[item.message_key for item in context],
+                reason="Jira 链接需求且后续已 @ 相关人员/出现接单确认，按明确需求兜底收录。",
+            )
+        )
+    return actions
+
+
 def ai_action_to_candidate(action: AiAction, messages: list[RecentMessage]) -> IntakeCandidate:
     by_key = {message.message_key: message for message in messages}
     source = by_key.get(action.message_keys[0]) if action.message_keys else None
@@ -582,6 +638,13 @@ async def run_once(config_path: Path) -> None:
         return
     payload = build_ai_request_payload(messages, records, cfg.max_messages_for_ai, cfg.max_records_for_ai)
     actions = parse_ai_response(call_openai(cfg, payload))
+    handled_keys = {key for action in actions if action.action != "ignore" for key in action.message_keys}
+    fallback_actions = [
+        action
+        for action in jira_demand_fallback_actions(messages, records)
+        if not set(action.message_keys) & handled_keys
+    ]
+    actions.extend(fallback_actions)
     auto_actions: list[AiAction] = []
     notify_actions: list[AiAction] = []
     ignored = 0
